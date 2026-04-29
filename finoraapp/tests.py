@@ -81,6 +81,8 @@ class FinoraApiTests(APITestCase):
         self.assertIn("/services", content)
         self.assertIn("/about", content)
         self.assertIn("/contact", content)
+        self.assertIn("/locations/thalassery", content)
+        self.assertIn("/locations/payyannur", content)
         self.assertIn("/news/itihasam-expands-to-5-new-cities", content)
         self.assertIn("/blog/test-blog-post", response.content.decode())
 

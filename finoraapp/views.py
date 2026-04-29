@@ -41,6 +41,18 @@ STATIC_SITEMAP_ENTRIES = [
     {"path": "/news/itihasam-expands-to-5-new-cities", "lastmod": "2026-04-08", "priority": "0.7"},
     {"path": "/news/annual-home-cleaning-drive-2026", "lastmod": "2026-03-25", "priority": "0.7"},
     {"path": "/news/new-carpentry-workshop-program", "lastmod": "2026-03-10", "priority": "0.7"},
+    {"path": "/locations/thalassery", "priority": "0.85"},
+    {"path": "/locations/panoor", "priority": "0.85"},
+    {"path": "/locations/nadapuram", "priority": "0.85"},
+    {"path": "/locations/mahe", "priority": "0.85"},
+    {"path": "/locations/kuthuparamba", "priority": "0.85"},
+    {"path": "/locations/mattannur", "priority": "0.85"},
+    {"path": "/locations/iritty", "priority": "0.85"},
+    {"path": "/locations/anjarakandy", "priority": "0.85"},
+    {"path": "/locations/chalod", "priority": "0.85"},
+    {"path": "/locations/thazhe-chovva", "priority": "0.85"},
+    {"path": "/locations/taliparamba", "priority": "0.85"},
+    {"path": "/locations/payyannur", "priority": "0.85"},
 ]
 
 
