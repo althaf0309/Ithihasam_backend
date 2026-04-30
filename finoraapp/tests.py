@@ -83,6 +83,13 @@ class FinoraApiTests(APITestCase):
         self.assertIn("/contact", content)
         self.assertIn("/locations/thalassery", content)
         self.assertIn("/locations/payyannur", content)
+        self.assertIn("/locations/chakkarakkal", content)
+        self.assertIn("/ac-repair-thalassery", content)
+        self.assertIn("/fridge-repair-thalassery", content)
+        self.assertIn("/washing-machine-repair-panoor", content)
+        self.assertIn("/painting-chakkarakkal", content)
+        self.assertIn("/carpentry-mahe", content)
+        self.assertIn("/cctv-installation-payyannur", content)
         self.assertIn("/news/itihasam-expands-to-5-new-cities", content)
         self.assertIn("/blog/test-blog-post", response.content.decode())
 

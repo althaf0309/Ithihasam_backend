@@ -48,6 +48,7 @@ STATIC_SITEMAP_ENTRIES = [
     {"path": "/locations/kuthuparamba", "priority": "0.85"},
     {"path": "/locations/mattannur", "priority": "0.85"},
     {"path": "/locations/iritty", "priority": "0.85"},
+    {"path": "/locations/chakkarakkal", "priority": "0.85"},
     {"path": "/locations/anjarakandy", "priority": "0.85"},
     {"path": "/locations/chalod", "priority": "0.85"},
     {"path": "/locations/thazhe-chovva", "priority": "0.85"},
@@ -55,11 +56,68 @@ STATIC_SITEMAP_ENTRIES = [
     {"path": "/locations/payyannur", "priority": "0.85"},
 ]
 
+LOCAL_SERVICE_LOCATION_SLUGS = [
+    "thalassery",
+    "panoor",
+    "nadapuram",
+    "mahe",
+    "kuthuparamba",
+    "mattannur",
+    "iritty",
+    "chakkarakkal",
+    "anjarakandy",
+    "chalod",
+    "thazhe-chovva",
+    "taliparamba",
+    "payyannur",
+]
+
+LOCAL_SERVICE_SLUG_PREFIXES = [
+    "appliance-servicing",
+    "ac-repair",
+    "washing-machine-repair",
+    "refrigerator-repair",
+    "fridge-repair",
+    "appliance-service",
+    "electrician",
+    "plumber",
+    "electrical-plumbing",
+    "painting",
+    "house-painting",
+    "interior-painting",
+    "exterior-painting",
+    "carpentry",
+    "carpenter",
+    "furniture-repair",
+    "modular-kitchen-work",
+    "roofing-fabrication",
+    "aluminium-fabrication",
+    "steel-fabrication",
+    "gate-fabrication",
+    "roofing-sheet-work",
+    "deep-cleaning",
+    "home-cleaning",
+    "sofa-cleaning",
+    "pest-control",
+    "termite-control",
+    "cockroach-control",
+    "smart-home",
+    "cctv-installation",
+    "smart-home-setup",
+    "wifi-setup",
+]
+
+LOCAL_SERVICE_SITEMAP_ENTRIES = [
+    {"path": f"/{service_slug}-{location_slug}", "priority": "0.78"}
+    for location_slug in LOCAL_SERVICE_LOCATION_SLUGS
+    for service_slug in LOCAL_SERVICE_SLUG_PREFIXES
+]
+
 
 def sitemap_xml_view(request):
     urlset = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
 
-    for entry in STATIC_SITEMAP_ENTRIES:
+    for entry in [*STATIC_SITEMAP_ENTRIES, *LOCAL_SERVICE_SITEMAP_ENTRIES]:
         url = SubElement(urlset, "url")
         SubElement(url, "loc").text = f"{settings.SITE_URL}{entry['path']}"
 
