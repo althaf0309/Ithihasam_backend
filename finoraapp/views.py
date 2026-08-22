@@ -54,6 +54,28 @@ STATIC_SITEMAP_ENTRIES = [
     {"path": "/locations/thazhe-chovva", "priority": "0.85"},
     {"path": "/locations/taliparamba", "priority": "0.85"},
     {"path": "/locations/payyannur", "priority": "0.85"},
+    {"path": "/locations/kannur", "priority": "0.85"},
+    {"path": "/locations/thrissur", "priority": "0.85"},
+    {"path": "/locations/guruvayur", "priority": "0.85"},
+    {"path": "/locations/kunnamkulam", "priority": "0.85"},
+    {"path": "/locations/chalakudy", "priority": "0.85"},
+    {"path": "/locations/irinjalakuda", "priority": "0.85"},
+    {"path": "/locations/kodungallur", "priority": "0.85"},
+    {"path": "/locations/wadakkanchery", "priority": "0.85"},
+    {"path": "/locations/chavakkad", "priority": "0.85"},
+    {"path": "/locations/ollur", "priority": "0.85"},
+    {"path": "/locations/mala", "priority": "0.85"},
+    {"path": "/locations/kodakara", "priority": "0.85"},
+    {"path": "/locations/ernakulam", "priority": "0.85"},
+    {"path": "/locations/kakkanad", "priority": "0.85"},
+    {"path": "/locations/aluva", "priority": "0.85"},
+    {"path": "/locations/perumbavoor", "priority": "0.85"},
+    {"path": "/locations/muvattupuzha", "priority": "0.85"},
+    {"path": "/locations/angamaly", "priority": "0.85"},
+    {"path": "/locations/kothamangalam", "priority": "0.85"},
+    {"path": "/locations/tripunithura", "priority": "0.85"},
+    {"path": "/locations/north-paravur", "priority": "0.85"},
+    {"path": "/locations/piravom", "priority": "0.85"},
 ]
 
 LOCAL_SERVICE_LOCATION_SLUGS = [
@@ -70,6 +92,28 @@ LOCAL_SERVICE_LOCATION_SLUGS = [
     "thazhe-chovva",
     "taliparamba",
     "payyannur",
+    "kannur",
+    "thrissur",
+    "guruvayur",
+    "kunnamkulam",
+    "chalakudy",
+    "irinjalakuda",
+    "kodungallur",
+    "wadakkanchery",
+    "chavakkad",
+    "ollur",
+    "mala",
+    "kodakara",
+    "ernakulam",
+    "kakkanad",
+    "aluva",
+    "perumbavoor",
+    "muvattupuzha",
+    "angamaly",
+    "kothamangalam",
+    "tripunithura",
+    "north-paravur",
+    "piravom",
 ]
 
 LOCAL_SERVICE_SLUG_PREFIXES = [
@@ -111,10 +155,24 @@ LOCAL_SERVICE_SLUG_PREFIXES = [
     "wifi-setup",
 ]
 
+# Search-synonym prefixes that carry a <link rel="canonical"> pointing at a
+# stronger sibling page (see scripts/site-data.mjs duplicateTemplateCanonicals).
+# A sitemap must list canonical URLs only, so these are excluded here too.
+NON_CANONICAL_SLUG_PREFIXES = {
+    "fridge-repair",
+    "appliance-service",
+    "electrical-work",
+    "plumbing",
+    "house-painting",
+    "carpenter",
+    "smart-home-setup",
+}
+
 LOCAL_SERVICE_SITEMAP_ENTRIES = [
-    {"path": f"/{service_slug}-{location_slug}", "priority": "0.78"}
+    {"path": f"/{service_slug}-{location_slug}", "priority": "0.7"}
     for location_slug in LOCAL_SERVICE_LOCATION_SLUGS
     for service_slug in LOCAL_SERVICE_SLUG_PREFIXES
+    if service_slug not in NON_CANONICAL_SLUG_PREFIXES
 ]
 
 

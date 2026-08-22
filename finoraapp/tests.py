@@ -1,5 +1,7 @@
+import re
 from datetime import date
 
+from django.conf import settings
 from django.core import mail
 from django.test import override_settings
 from django.urls import reverse
@@ -86,15 +88,44 @@ class FinoraApiTests(APITestCase):
         self.assertIn("/locations/chakkarakkal", content)
         self.assertIn("/ac-repair-thalassery", content)
         self.assertIn("/tv-repair-thalassery", content)
-        self.assertIn("/fridge-repair-thalassery", content)
+        self.assertIn("/refrigerator-repair-thalassery", content)
         self.assertIn("/washing-machine-repair-panoor", content)
-        self.assertIn("/plumbing-mahe", content)
+        self.assertIn("/plumber-mahe", content)
         self.assertIn("/fabrication-mattannur", content)
         self.assertIn("/painting-chakkarakkal", content)
         self.assertIn("/carpentry-mahe", content)
         self.assertIn("/cctv-installation-payyannur", content)
         self.assertIn("/news/itihasam-expands-to-5-new-cities", content)
-        self.assertIn("/blog/test-blog-post", response.content.decode())
+        self.assertIn("/blog/test-blog-post", content)
+
+    def test_sitemap_excludes_non_canonical_synonym_pages(self):
+        """Synonym pages canonicalise to a sibling, so they must not be listed."""
+        response = self.client.get(reverse("sitemap-xml"))
+        content = response.content.decode()
+
+        for path in (
+            "/fridge-repair-thalassery",
+            "/plumbing-mahe",
+            "/house-painting-panoor",
+            "/carpenter-iritty",
+            "/electrical-work-mahe",
+            "/appliance-service-payyannur",
+            "/smart-home-setup-thalassery",
+        ):
+            self.assertNotIn(f"<loc>{settings.SITE_URL}{path}</loc>", content)
+
+    def test_sitemap_urls_have_no_trailing_slash(self):
+        """Canonical style is no-trailing-slash; sitemap must match it exactly."""
+        response = self.client.get(reverse("sitemap-xml"))
+        locs = re.findall(r"<loc>(.*?)</loc>", response.content.decode())
+
+        self.assertTrue(locs)
+        for loc in locs:
+            path = loc[len(settings.SITE_URL) :]
+            self.assertFalse(
+                path != "/" and path.endswith("/"),
+                f"sitemap URL should not end with a slash: {loc}",
+            )
 
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",

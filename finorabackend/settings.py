@@ -23,11 +23,35 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-DEBUG = env_bool("DEBUG", True)
+class ImproperlyConfiguredForProduction(Exception):
+    """Raised at import time when a production deploy is missing a required secret."""
 
-SECRET_KEY = os.getenv("SECRET_KEY") or "django-insecure-finora-dev-only-key"
 
-ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+# DEBUG defaults to False. A production box that is missing its .env now serves
+# safely instead of exposing tracebacks and settings; developers opt in locally.
+DEBUG = env_bool("DEBUG", False)
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG or IS_TESTING:
+        SECRET_KEY = "django-insecure-local-development-only-key"
+    else:
+        raise ImproperlyConfiguredForProduction(
+            "SECRET_KEY is not set. Generate one with:\n"
+            "  python -c \"from django.core.management.utils import get_random_secret_key;"
+            " print(get_random_secret_key())\"\n"
+            "then add it to .env before starting the server."
+        )
+
+ALLOWED_HOSTS = env_list(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,testserver" if (DEBUG or IS_TESTING) else "",
+)
+if not DEBUG and not IS_TESTING and not ALLOWED_HOSTS:
+    raise ImproperlyConfiguredForProduction(
+        "ALLOWED_HOSTS must be set when DEBUG is off, e.g. "
+        "ALLOWED_HOSTS=ithihasam.in,www.ithihasam.in"
+    )
 
 
 INSTALLED_APPS = [
@@ -101,7 +125,14 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
-SITE_URL = (os.getenv("SITE_URL", "http://localhost:8080" if DEBUG else "https://example.com")).rstrip("/")
+# Used to build absolute URLs in sitemap.xml. Must be https in production or the
+# sitemap advertises URLs that do not match the site's canonical tags.
+SITE_URL = (os.getenv("SITE_URL", "http://localhost:8080" if DEBUG else "https://ithihasam.in")).rstrip("/")
+if not DEBUG and not IS_TESTING and not SITE_URL.startswith("https://"):
+    raise ImproperlyConfiguredForProduction(
+        f"SITE_URL must use https in production (got {SITE_URL!r}). "
+        "Canonical tags and sitemap entries have to agree on the protocol."
+    )
 
 
 STATIC_URL = os.getenv("STATIC_URL", "/static/")
