@@ -93,3 +93,6 @@ class ContactSubmissionAdmin(admin.ModelAdmin):
     list_display = ("name", "phone", "whatsapp", "service", "city", "preferred_date", "created_at")
     list_filter = ("service", "city", "created_at")
     search_fields = ("name", "email", "phone", "whatsapp", "service", "city", "subject", "message")
+
+# Registers AnalyticsEvent and the dashboard view.
+from . import analytics_admin  # noqa: E402,F401

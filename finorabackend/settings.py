@@ -141,7 +141,17 @@ MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
 MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {
+        # The manifest backend requires collectstatic to have run, which is not
+        # the case under `manage.py test`. Any test rendering an admin template
+        # would otherwise fail on a missing manifest entry rather than on
+        # anything to do with the code under test.
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if IS_TESTING
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        )
+    },
 }
 WHITENOISE_MAX_AGE = int(os.getenv("WHITENOISE_MAX_AGE", "31536000"))
 
@@ -176,6 +186,9 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "contact_submissions": os.getenv("CONTACT_SUBMISSION_THROTTLE_RATE", "10/hour"),
+        # Analytics is high-volume by nature: one browsing session sends several
+        # batches. Generous, but still bounded against a flood.
+        "analytics_ingest": os.getenv("ANALYTICS_THROTTLE_RATE", "240/hour"),
     },
 }
 
@@ -319,3 +332,9 @@ LOGGING = {
         },
     },
 }
+
+# Optional local GeoIP City database (DB-IP City Lite or MaxMind GeoLite2).
+# When unset, analytics records no location rather than sending visitor IPs
+# to a third-party lookup service.
+#   pip install geoip2  &&  download the .mmdb  &&  set GEOIP_CITY_DB
+GEOIP_CITY_DB = os.getenv("GEOIP_CITY_DB", "")

@@ -62,3 +62,6 @@ class ContactSubmission(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.service}"
+
+# Analytics lives in its own module to keep this file about the core domain.
+from .analytics_models import AnalyticsEvent  # noqa: E402,F401

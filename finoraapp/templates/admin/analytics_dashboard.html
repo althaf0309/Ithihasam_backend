@@ -1,0 +1,190 @@
+{% extends "admin/base_site.html" %}
+{% comment %}
+Visitor analytics dashboard. Rendered inside the Django admin so it inherits
+staff authentication rather than needing its own login.
+{% endcomment %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .an-wrap { max-width: 1180px; }
+  .an-periods { display: flex; gap: 8px; margin: 0 0 20px; flex-wrap: wrap; }
+  .an-periods a {
+    padding: 6px 14px; border: 1px solid var(--border-color, #ccc);
+    border-radius: 999px; text-decoration: none; font-size: 13px;
+  }
+  .an-periods a.on { background: var(--primary, #417690); color: #fff; border-color: transparent; }
+  .an-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; margin-bottom: 26px; }
+  .an-card { border: 1px solid var(--hairline-color, #e0e0e0); border-radius: 10px; padding: 14px 16px; background: var(--darkened-bg, #fafafa); }
+  .an-card .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
+  .an-card .l { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .7; margin-top: 4px; }
+  .an-card.hl { border-color: #417690; }
+  .an-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 22px; }
+  .an-block h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
+  .an-block table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .an-block th, .an-block td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline-color, #eee); }
+  .an-block th { font-weight: 600; opacity: .7; font-size: 11px; text-transform: uppercase; }
+  .an-block td.num, .an-block th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .an-empty { opacity: .6; font-style: italic; padding: 12px 0; font-size: 13px; }
+  .an-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: rgba(65,118,144,.14); }
+  .an-rep { color: #b45309; font-weight: 600; }
+  .an-full { grid-column: 1 / -1; }
+  .an-scroll { max-height: 460px; overflow-y: auto; }
+  .an-actions { margin: 24px 0 8px; }
+  .an-actions a { font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="an-wrap">
+
+  <div class="an-periods">
+    {% for value, label in periods %}
+      <a href="?days={{ value }}" class="{% if days|stringformat:'s' == value %}on{% endif %}">
+        {% if value == '1' %}Today{% else %}Last {{ value }} days{% endif %}
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="an-cards">
+    <div class="an-card"><div class="n">{{ summary.visitors }}</div><div class="l">Visitors</div></div>
+    <div class="an-card"><div class="n">{{ summary.page_views }}</div><div class="l">Page views</div></div>
+    <div class="an-card hl"><div class="n">{{ summary.calls }}</div><div class="l">📞 Call taps</div></div>
+    <div class="an-card hl"><div class="n">{{ summary.whatsapp }}</div><div class="l">💬 WhatsApp</div></div>
+    <div class="an-card hl"><div class="n">{{ summary.forms }}</div><div class="l">📝 Form submits</div></div>
+    <div class="an-card"><div class="n">{{ summary.contact_rate }}%</div><div class="l">Tried to contact</div></div>
+  </div>
+
+  <div class="an-grid">
+
+    <div class="an-block">
+      <h2>Clicks by type</h2>
+      <table>
+        <thead><tr><th>Type</th><th class="num">Clicks</th><th class="num">People</th><th class="num">Repeats</th></tr></thead>
+        <tbody>
+          {% for row in by_target %}
+            <tr><td>{{ row.name }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td><td class="num">{{ row.repeats }}</td></tr>
+          {% empty %}
+            <tr><td colspan="4" class="an-empty">No clicks recorded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Where visitors are</h2>
+      <table>
+        <thead><tr><th>Location</th><th class="num">People</th><th class="num">Events</th></tr></thead>
+        <tbody>
+          {% for row in top_locations %}
+            <tr>
+              <td>{{ row.city }}{% if row.region %}, {{ row.region }}{% endif %}{% if row.country %} · {{ row.country }}{% endif %}</td>
+              <td class="num">{{ row.people }}</td><td class="num">{{ row.total }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="an-empty">
+              No locations yet. Set GEOIP_CITY_DB in .env to enable lookups.
+            </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Most clicked</h2>
+      <table>
+        <thead><tr><th>Label</th><th>Page</th><th class="num">Clicks</th></tr></thead>
+        <tbody>
+          {% for row in top_clicked %}
+            <tr>
+              <td><span class="an-tag">{{ target_labels|default_if_none:'' }}{{ row.target_type }}</span> {{ row.label|default:"—" }}</td>
+              <td>{{ row.path }}</td><td class="num">{{ row.total }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="an-empty">Nothing clicked yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Top pages</h2>
+      <table>
+        <thead><tr><th>Page</th><th class="num">Views</th><th class="num">People</th></tr></thead>
+        <tbody>
+          {% for row in top_pages %}
+            <tr><td>{{ row.path }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
+          {% empty %}
+            <tr><td colspan="3" class="an-empty">No page views yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Devices</h2>
+      <table>
+        <thead><tr><th>Device</th><th class="num">Events</th><th class="num">People</th></tr></thead>
+        <tbody>
+          {% for row in devices %}
+            <tr><td>{{ row.device_type|title }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
+          {% empty %}
+            <tr><td colspan="3" class="an-empty">No device data yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Form submissions</h2>
+      <div class="an-scroll">
+        <table>
+          <thead><tr><th>When</th><th>Service</th><th>From</th></tr></thead>
+          <tbody>
+            {% for row in form_submissions %}
+              <tr>
+                <td>{{ row.created_at|date:"d M, H:i" }}</td>
+                <td>{{ row.form_service|default:"—" }}</td>
+                <td>{{ row.form_city|default:row.city|default:"Unknown" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="an-empty">No form submissions yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="an-block an-full">
+      <h2>Click log</h2>
+      <div class="an-scroll">
+        <table>
+          <thead>
+            <tr><th>Time (IST)</th><th>Type</th><th>Label</th><th>Page</th><th>Location</th><th>Device</th><th class="num">#</th></tr>
+          </thead>
+          <tbody>
+            {% for row in recent_clicks %}
+              <tr>
+                <td>{{ row.created_at|date:"d M, H:i" }}</td>
+                <td><span class="an-tag">{{ row.target_type|default:"other" }}</span></td>
+                <td>{{ row.label|default:row.href|default:"—"|truncatechars:60 }}</td>
+                <td>{{ row.path|truncatechars:40 }}</td>
+                <td>{% if row.city %}{{ row.city }}{% if row.country %}, {{ row.country }}{% endif %}{% else %}Unknown{% endif %}</td>
+                <td>{{ row.device_type|default:"—" }}</td>
+                <td class="num">{% if row.repeat_index > 1 %}<span class="an-rep">×{{ row.repeat_index }}</span>{% else %}1{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="an-empty">No clicks recorded yet. Events appear here once the site is deployed with the tracker.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="an-actions">
+    <a class="button" href="?days={{ days }}&amp;export=1" onclick="this.href='export/?days={{ days }}'">Download CSV ({{ days }} days)</a>
+  </div>
+
+</div>
+{% endblock %}
