@@ -15,12 +15,19 @@ def _format_preferred_date(submission):
 
 
 def send_booking_notification(submission) -> bool:
+    """Emails the team about a new enquiry, recording the outcome on the row.
+
+    Returns True only when the message actually left the server. The result is
+    stored so a silent delivery failure is visible in the admin rather than
+    discovered when a customer asks why nobody called back.
+    """
     recipients = getattr(settings, "BOOKING_NOTIFICATION_EMAILS", [])
     if not recipients:
         logger.info(
             "Skipping booking notification email for submission %s because BOOKING_NOTIFICATION_EMAILS is empty.",
             submission.pk,
         )
+        _record(submission, False, "No recipient configured (BOOKING_NOTIFICATION_EMAILS is empty).")
         return False
 
     preferred_date = _format_preferred_date(submission)
@@ -73,10 +80,23 @@ def send_booking_notification(submission) -> bool:
         )
         email_message.attach_alternative(html_body, "text/html")
         email_message.send(fail_silently=False)
+        _record(submission, True, "")
         return True
-    except Exception:
+    except Exception as error:
         logger.exception(
             "Failed to send booking notification email for submission %s.",
             submission.pk,
         )
+        _record(submission, False, f"{type(error).__name__}: {error}"[:300])
         return False
+
+
+def _record(submission, sent: bool, error: str) -> None:
+    """Stores the delivery outcome without disturbing the saved enquiry."""
+    try:
+        submission.notification_sent = sent
+        submission.notification_error = error
+        submission.save(update_fields=["notification_sent", "notification_error"])
+    except Exception:
+        # The lead is already saved; never let bookkeeping lose it.
+        logger.exception("Could not record notification state for submission %s.", submission.pk)

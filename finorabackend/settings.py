@@ -338,3 +338,7 @@ LOGGING = {
 # to a third-party lookup service.
 #   pip install geoip2  &&  download the .mmdb  &&  set GEOIP_CITY_DB
 GEOIP_CITY_DB = os.getenv("GEOIP_CITY_DB", "")
+
+# Analytics rows hold IP addresses, which are personal data under the DPDP Act.
+# They are purged after this many days; keeping them indefinitely is not allowed.
+ANALYTICS_RETENTION_DAYS = int(os.getenv("ANALYTICS_RETENTION_DAYS", "90"))

@@ -57,6 +57,15 @@ class ContactSubmission(models.Model):
     message = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Whether the notification email actually left the server. Previously the
+    # result was returned to the browser and then discarded, so a lead could be
+    # saved while the email silently failed and nobody would know until a
+    # customer asked why they had not been called back.
+    notification_sent = models.BooleanField(
+        default=False,
+        help_text="Whether the alert email was delivered to the team.",
+    )
+    notification_error = models.CharField(max_length=300, blank=True)
     class Meta:
         ordering = ("-created_at", "-id")
 

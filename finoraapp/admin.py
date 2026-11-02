@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 from django_ckeditor_5.widgets import CKEditor5Widget
 
@@ -90,9 +90,40 @@ class BlogPostAdmin(admin.ModelAdmin):
 
 @admin.register(ContactSubmission)
 class ContactSubmissionAdmin(admin.ModelAdmin):
-    list_display = ("name", "phone", "whatsapp", "service", "city", "preferred_date", "created_at")
-    list_filter = ("service", "city", "created_at")
+    list_display = ("name", "phone", "whatsapp", "service", "city", "preferred_date", "created_at", "email_status")
+    # Filtering on notification_sent is how you find leads nobody was told about.
+    list_filter = ("notification_sent", "service", "city", "created_at")
     search_fields = ("name", "email", "phone", "whatsapp", "service", "city", "subject", "message")
+    readonly_fields = ("notification_sent", "notification_error", "created_at")
+    actions = ["resend_notification"]
+
+    @admin.display(description="Email", ordering="notification_sent")
+    def email_status(self, obj):
+        if obj.notification_sent:
+            return format_html('<span style="color:#15803d">✔ sent</span>')
+        reason = obj.notification_error or "not sent"
+        return format_html('<span style="color:#b91c1c" title="{}">✘ failed</span>', reason)
+
+    @admin.action(description="Resend notification email")
+    def resend_notification(self, request, queryset):
+        """Retries delivery for leads whose email never went out.
+
+        Useful after fixing mail credentials: the enquiries were saved all
+        along, they just never reached anyone.
+        """
+        from .notifications import send_booking_notification
+
+        sent = sum(1 for submission in queryset if send_booking_notification(submission))
+        failed = queryset.count() - sent
+
+        if sent:
+            self.message_user(request, f"Sent {sent} notification email(s).", messages.SUCCESS)
+        if failed:
+            self.message_user(
+                request,
+                f"{failed} still failed — check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in .env.",
+                messages.ERROR,
+            )
 
 # Registers AnalyticsEvent and the dashboard view.
 from . import analytics_admin  # noqa: E402,F401

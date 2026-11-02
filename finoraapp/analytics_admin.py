@@ -10,7 +10,7 @@ from __future__ import annotations
 import csv
 from datetime import timedelta
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
@@ -36,9 +36,9 @@ def _csv_safe(value) -> str:
 
 @admin.register(AnalyticsEvent)
 class AnalyticsEventAdmin(admin.ModelAdmin):
-    list_display = ("created_at_ist", "kind", "what", "where", "device_type", "repeat_index")
+    list_display = ("created_at_ist", "who", "kind", "what", "where", "device_type", "repeat_index")
     list_filter = ("kind", "target_type", "device_type", "country", "created_at")
-    search_fields = ("label", "href", "path", "city", "form_service")
+    search_fields = ("label", "href", "path", "city", "form_service", "person_name", "person_phone")
     date_hierarchy = "created_at"
     list_per_page = 100
 
@@ -52,6 +52,43 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
     @admin.display(description="Time (IST)", ordering="created_at")
     def created_at_ist(self, obj):
         return timezone.localtime(obj.created_at).strftime("%d %b %Y, %H:%M")
+
+    @admin.display(description="Who", ordering="person_name")
+    def who(self, obj):
+        """The person, once known.
+
+        A visitor is anonymous until they submit the form; the server then
+        back-fills the name across that visit, so earlier clicks become
+        attributable to someone you can actually call.
+        """
+        if obj.person_name:
+            return format_html("<strong>{}</strong>", obj.person_name)
+        return format_html('<span style="opacity:.5">anonymous</span>')
+
+    @admin.action(description="Erase this visitor's data (DPDP request)")
+    def erase_visitor(self, request, queryset):
+        """Deletes every event for the selected visitors.
+
+        The DPDP Act gives a person the right to erasure. Deleting by visitor
+        rather than by row removes their whole history, not just what happened
+        to be on screen.
+        """
+        visitor_ids = list(queryset.values_list("visitor_id", flat=True).distinct())
+        deleted, _ = AnalyticsEvent.objects.filter(visitor_id__in=visitor_ids).delete()
+        self.message_user(
+            request,
+            f"Erased {deleted} event(s) for {len(visitor_ids)} visitor(s).",
+            messages.SUCCESS,
+        )
+
+    @admin.action(description="Purge events past the retention window")
+    def purge_old(self, request, queryset):
+        from .analytics_models import purge_expired_events
+
+        deleted = purge_expired_events()
+        self.message_user(request, f"Purged {deleted} expired event(s).", messages.SUCCESS)
+
+    actions = ["erase_visitor", "purge_old"]
 
     @admin.display(description="What")
     def what(self, obj):
@@ -157,10 +194,24 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
                 .values("created_at", "form_service", "form_city", "city", "country", "path", "form_succeeded")
                 .order_by("-created_at")[:50]
             ),
+            # Visitors who gave a name, with what they did. This is the panel
+            # that turns analytics into a callback list.
+            "identified": list(
+                events.exclude(person_name="")
+                .values("person_name", "person_phone", "city", "country", "visitor_id")
+                .annotate(
+                    events_count=Count("id"),
+                    calls=Count("id", filter=Q(target_type=AnalyticsEvent.Target.PHONE)),
+                    whatsapp=Count("id", filter=Q(target_type=AnalyticsEvent.Target.WHATSAPP)),
+                    forms=Count("id", filter=Q(kind=AnalyticsEvent.Kind.FORM_SUBMIT)),
+                )
+                .order_by("-events_count")[:50]
+            ),
             "recent_clicks": list(
                 clicks.values(
                     "created_at", "target_type", "label", "href", "path",
                     "city", "region", "country", "device_type", "repeat_index",
+                    "person_name", "person_phone",
                 ).order_by("-created_at")[:200]
             ),
             "target_labels": labels,
@@ -176,6 +227,7 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
                 "created_at", "kind", "target_type", "label", "href", "path",
                 "city", "region", "country", "device_type", "browser",
                 "repeat_index", "form_service", "form_city",
+                "person_name", "person_phone",
             )
         )
 
@@ -186,7 +238,7 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
         writer.writerow([
             "Time (IST)", "Kind", "Target", "Label", "Href", "Path",
             "City", "Region", "Country", "Device", "Browser",
-            "Repeat #", "Service", "Form city",
+            "Repeat #", "Service", "Form city", "Name", "Phone",
         ])
         for row in rows.iterator(chunk_size=500):
             created, *rest = row

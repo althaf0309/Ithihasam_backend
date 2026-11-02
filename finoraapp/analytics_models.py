@@ -6,8 +6,12 @@ ORM already gives atomic writes, indexing and an admin UI, so a table is simpler
 and safer than reimplementing file locking.
 
 Privacy: no raw IP address is ever stored. The IP is used once, in memory, to
-derive a coarse town/region/country and is then discarded. Visitors are counted
-with a random id the browser generates, not with anything identifying.
+derive a coarse town/region/country and is then discarded, so the table holds no
+personal data under India's DPDP Act. Visitors are counted with a random id the
+browser generates.
+
+A visitor's name is recorded only when they themselves submit the booking form,
+and it is purged with the rest of their events after ANALYTICS_RETENTION_DAYS.
 """
 
 from django.db import models
@@ -79,6 +83,11 @@ class AnalyticsEvent(models.Model):
     form_service = models.CharField(max_length=150, blank=True)
     form_city = models.CharField(max_length=120, blank=True)
     form_succeeded = models.BooleanField(null=True, blank=True)
+    # Captured when a visitor submits the booking form. Once known, it is
+    # back-filled onto that visitor's earlier events, so the click log shows
+    # who was browsing rather than an opaque id.
+    person_name = models.CharField(max_length=150, blank=True, db_index=True)
+    person_phone = models.CharField(max_length=40, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -99,3 +108,20 @@ class AnalyticsEvent(models.Model):
     def location(self):
         parts = [part for part in (self.city, self.region, self.country) if part]
         return ", ".join(parts) or "Unknown"
+
+
+def purge_expired_events():
+    """Deletes events past the retention window.
+
+    No IP is stored, but a visitor's name is once they submit the form, so the
+    rows still age out rather than accumulating indefinitely. Nobody acts on a
+    click from last year in any case.
+    """
+    from datetime import timedelta
+
+    from django.conf import settings
+
+    days = getattr(settings, "ANALYTICS_RETENTION_DAYS", 90)
+    cutoff = timezone.now() - timedelta(days=days)
+    deleted, _ = AnalyticsEvent.objects.filter(created_at__lt=cutoff).delete()
+    return deleted

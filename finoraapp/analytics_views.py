@@ -63,6 +63,7 @@ class AnalyticsIngestAPIView(APIView):
         if not isinstance(events, list):
             events = [payload]
 
+        # The IP is read, resolved to a coarse location, and never persisted.
         location = resolve_location(client_ip(request))
         device = parse_device(user_agent)
         now = timezone.now()
@@ -117,6 +118,9 @@ class AnalyticsIngestAPIView(APIView):
                     + 1
                 )
 
+            person_name = _clip(raw.get('person_name'), 150)
+            person_phone = _clip(raw.get('person_phone'), 40)
+
             rows.append(
                 AnalyticsEvent(
                     kind=kind,
@@ -136,6 +140,8 @@ class AnalyticsIngestAPIView(APIView):
                     form_service=_clip(raw.get("form_service"), 150),
                     form_city=_clip(raw.get("form_city"), 120),
                     form_succeeded=raw.get("form_succeeded") if isinstance(raw.get("form_succeeded"), bool) else None,
+                    person_name=person_name,
+                    person_phone=person_phone,
                     created_at=now,
                     **location,
                     **device,
@@ -145,5 +151,18 @@ class AnalyticsIngestAPIView(APIView):
         if rows:
             with transaction.atomic():
                 AnalyticsEvent.objects.bulk_create(rows)
+
+                # A visitor is anonymous until they submit the form. Once they
+                # give a name, apply it to everything they did in this visit, so
+                # the click log reads "Anjana K tapped Call Now" rather than
+                # showing an id nobody can act on.
+                named = next(
+                    (row for row in rows if row.person_name and row.kind == AnalyticsEvent.Kind.FORM_SUBMIT),
+                    None,
+                )
+                if named:
+                    AnalyticsEvent.objects.filter(
+                        visitor_id=named.visitor_id, person_name=""
+                    ).update(person_name=named.person_name, person_phone=named.person_phone)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
