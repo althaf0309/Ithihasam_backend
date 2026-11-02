@@ -206,6 +206,14 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
+
+# Django raises an obscure error if both are set, and silently fails to
+# negotiate TLS if neither is. Catch it here with a message that says what to do.
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    raise ImproperlyConfiguredForProduction(
+        "EMAIL_USE_TLS and EMAIL_USE_SSL cannot both be true. "
+        "Use port 587 with EMAIL_USE_TLS=true, or port 465 with EMAIL_USE_SSL=true."
+    )
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@ithihasa.local")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 BOOKING_NOTIFICATION_EMAILS = env_list(
