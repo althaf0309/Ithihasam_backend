@@ -17,10 +17,15 @@ No raw IP is stored anywhere. It is resolved in memory and discarded.
 from __future__ import annotations
 
 import ipaddress
+import logging
+import os
 import re
 
 # Substrings that reliably mark automated traffic. Deliberately excludes
 # "headless", which would also exclude the project's own browser tests.
+logger = logging.getLogger("finoraapp")
+
+
 BOT_MARKERS = (
     "bot", "crawler", "spider", "slurp", "scrapy", "curl", "wget",
     "python-requests", "httpclient", "go-http-client", "okhttp",
@@ -127,13 +132,25 @@ def _get_reader():
 
     db_path = getattr(settings, "GEOIP_CITY_DB", "")
     if not db_path:
+        # Silence here is why every event read "Unknown" with no clue as to why.
+        logger.warning(
+            "GEOIP_CITY_DB is not set, so analytics cannot resolve locations. "
+            "Download a City database (DB-IP City Lite or GeoLite2) and point "
+            "GEOIP_CITY_DB at the .mmdb file."
+        )
+        return None
+
+    if not os.path.exists(db_path):
+        logger.error("GEOIP_CITY_DB points at %s, which does not exist.", db_path)
         return None
 
     try:
         import geoip2.database
 
         _reader = geoip2.database.Reader(db_path)
+        logger.info("GeoIP database loaded from %s.", db_path)
     except Exception:
+        logger.exception("Could not open the GeoIP database at %s.", db_path)
         _reader = None
 
     return _reader
