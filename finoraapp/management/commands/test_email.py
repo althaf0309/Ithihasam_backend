@@ -48,6 +48,20 @@ class Command(BaseCommand):
         ):
             self.stdout.write(f"  {label:<22} {value}")
 
+        # Port and TLS flag must agree, or the server closes the connection
+        # before authentication and the error gives no hint as to why.
+        if settings.EMAIL_PORT == 465 and not settings.EMAIL_USE_SSL:
+            self.stdout.write(
+                self.style.ERROR(
+                    "\n  Port 465 requires EMAIL_USE_SSL=true. Without it the connection "
+                    "is closed before authentication."
+                )
+            )
+        if settings.EMAIL_PORT == 587 and not settings.EMAIL_USE_TLS:
+            self.stdout.write(
+                self.style.ERROR("\n  Port 587 requires EMAIL_USE_TLS=true.")
+            )
+
         self.stdout.write(f"\nSending to: {', '.join(recipients)}")
 
         message = EmailMultiAlternatives(
