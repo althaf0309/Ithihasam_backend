@@ -23,6 +23,7 @@ staff authentication rather than needing its own login.
   .an-block table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .an-block th, .an-block td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline-color, #eee); }
   .an-block th { font-weight: 600; opacity: .7; font-size: 11px; text-transform: uppercase; }
+  .an-note { font-size: 12px; opacity: .75; margin: -4px 0 12px; line-height: 1.5; }
   .an-block td.num, .an-block th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .an-empty { opacity: .6; font-style: italic; padding: 12px 0; font-size: 13px; }
   .an-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: rgba(65,118,144,.14); }
@@ -101,6 +102,114 @@ staff authentication rather than needing its own login.
             </tr>
           {% empty %}
             <tr><td colspan="3" class="an-empty">Nothing clicked yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Service performance</h2>
+      {% if not performance.catalogue_loaded %}
+        <p class="an-note">Service names are unavailable because the frontend data files were not
+        found on this server. The page list below is still accurate.</p>
+      {% endif %}
+      <p class="an-note">An enquiry is any attempt at contact: the booking form, Call Now, or
+      WhatsApp. Most customers call rather than fill the form, so counting forms alone would show
+      working pages as dead.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Service</th><th class="num">Pages</th><th class="num">Views</th>
+            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in performance.by_service %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="num">{{ row.pages }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No page views recorded in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Performance by location</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Location</th><th class="num">Pages</th><th class="num">Views</th>
+            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in performance.by_place %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="num">{{ row.pages }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No location data in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Best performing pages</h2>
+      <table>
+        <thead>
+          <tr><th>Page</th><th>Service</th><th>Location</th>
+              <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th></tr>
+        </thead>
+        <tbody>
+          {% for row in performance.best_pages %}
+            <tr>
+              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
+              <td>{{ row.service|default:"&mdash;" }}</td>
+              <td>{{ row.place|default:"&mdash;" }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{{ row.rate }}%</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No page earned an enquiry in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
+      <h2>Pages with visitors but no enquiries</h2>
+      <p class="an-note">{{ performance.dead_count }} page{{ performance.dead_count|pluralize }}
+      had at least {{ performance.min_views }} views and produced no call, WhatsApp or form.
+      These are the pages worth rewriting, merging or dropping.</p>
+      <table>
+        <thead>
+          <tr><th>Page</th><th>Service</th><th>Location</th><th class="num">Views</th><th class="num">People</th></tr>
+        </thead>
+        <tbody>
+          {% for row in performance.dead_pages %}
+            <tr>
+              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
+              <td>{{ row.service|default:"&mdash;" }}</td>
+              <td>{{ row.place|default:"&mdash;" }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">Every page with traffic produced at least one enquiry.</td></tr>
           {% endfor %}
         </tbody>
       </table>

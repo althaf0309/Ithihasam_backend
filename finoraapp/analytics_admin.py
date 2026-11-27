@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .analytics_models import AnalyticsEvent
+from .analytics_performance import performance_report
 
 # Windows offered by the dashboard's period selector.
 PERIODS = {"1": 1, "7": 7, "30": 30, "90": 90}
@@ -177,6 +178,10 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
                 .annotate(total=Count("id"), people=Count("visitor_id", distinct=True))
                 .order_by("-total")[:20]
             ),
+            # Which service earns enquiries, where, and which pages pull
+            # visitors and return nothing. A raw path list cannot answer that
+            # across 2,759 URLs.
+            "performance": performance_report(since),
             "top_pages": list(
                 events.filter(kind=AnalyticsEvent.Kind.PAGE_VIEW)
                 .values("path")
