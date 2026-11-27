@@ -351,6 +351,30 @@ LOGGING = {
 #   pip install geoip2  &&  download the .mmdb  &&  set GEOIP_CITY_DB
 GEOIP_CITY_DB = os.getenv("GEOIP_CITY_DB", "")
 
+
+# --------------------------------------------------------------------------
+# Scheduled blog generation
+# --------------------------------------------------------------------------
+#
+# Used by `manage.py generate_blog_posts`. Without ANTHROPIC_API_KEY the
+# command fails with a clear message rather than writing empty posts.
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+
+# Haiku is the right tier: the brief carries the facts, so the model is
+# arranging known material rather than reasoning from scratch.
+BLOG_MODEL = os.getenv("BLOG_MODEL", "claude-haiku-5-5")
+
+# How many posts a scheduled run writes. Lower it if Search Console shows
+# indexing falling — a page Google will not index is a page not worth the
+# spend.
+BLOG_POSTS_PER_RUN = int(os.getenv("BLOG_POSTS_PER_RUN", "30"))
+
+# Which services and places the schedule covers. Comma-separated slugs
+# override the defaults in blog_planner.py; empty means use those defaults.
+BLOG_SERVICES = env_list("BLOG_SERVICES") or None
+BLOG_PLACES = env_list("BLOG_PLACES") or None
+
 # Analytics rows hold IP addresses, which are personal data under the DPDP Act.
 # They are purged after this many days; keeping them indefinitely is not allowed.
 ANALYTICS_RETENTION_DAYS = int(os.getenv("ANALYTICS_RETENTION_DAYS", "90"))
