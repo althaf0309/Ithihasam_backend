@@ -293,3 +293,91 @@ class ExpansionReportTests(TestCase):
         self.assertTrue(wanted)
         self.assertEqual(wanted[0]["city"], "Thrissur")
         self.assertEqual(wanted[0]["service"], "Sand Supply")
+
+
+class AllPagesViewTests(TestCase):
+    """The full page/location table behind the dashboard."""
+
+    def setUp(self):
+        analytics_performance._CATALOGUE = Catalogue(
+            services={"sand-supply": "Sand Supply", "interior-design": "Interior Design"},
+            places={"kannur": "Kannur", "cherthala": "Cherthala"},
+        )
+        User = get_user_model()
+        User.objects.create_superuser("admin", "a@b.c", "pw-for-test-only")
+        self.client.login(username="admin", password="pw-for-test-only")
+        self.url = reverse("admin:analytics-pages")
+
+    def tearDown(self):
+        reset_catalogue()
+
+    def _view(self, path, visitor):
+        AnalyticsEvent.objects.create(
+            kind=AnalyticsEvent.Kind.PAGE_VIEW, path=path, visitor_id=visitor
+        )
+
+    def _call(self, path, visitor):
+        AnalyticsEvent.objects.create(
+            kind=AnalyticsEvent.Kind.CLICK,
+            target_type=AnalyticsEvent.Target.PHONE,
+            path=path,
+            visitor_id=visitor,
+        )
+
+    def test_lists_every_page_not_just_a_top_slice(self):
+        # The dashboard caps at 25 rows. With 2,759 pages that is under 1%,
+        # which is the reason this view exists.
+        for i in range(120):
+            self._view(f"/sand-supply-page-{i}", f"v{i}")
+
+        response = self.client.get(self.url, {"days": "30"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["totals"]["pages"], 120)
+        # Paginated so the browser is not asked to render thousands of rows.
+        self.assertEqual(response.context["page_obj"].paginator.num_pages, 2)
+
+    def test_filters_to_pages_with_no_enquiry(self):
+        self._view("/sand-supply-cherthala", "v1")
+        self._call("/sand-supply-cherthala", "v1")
+        self._view("/interior-design-kannur", "v2")
+
+        response = self.client.get(self.url, {"days": "30", "show": "dead"})
+        paths = [row["path"] for row in response.context["page_obj"]]
+
+        self.assertEqual(paths, ["/interior-design-kannur"])
+
+    def test_searches_by_service_or_town(self):
+        self._view("/sand-supply-cherthala", "v1")
+        self._view("/interior-design-kannur", "v2")
+
+        response = self.client.get(self.url, {"days": "30", "q": "cherthala"})
+        paths = [row["path"] for row in response.context["page_obj"]]
+
+        self.assertEqual(paths, ["/sand-supply-cherthala"])
+
+    def test_sorts_by_enquiries(self):
+        for i in range(5):
+            self._view("/sand-supply-cherthala", f"a{i}")
+        self._view("/interior-design-kannur", "b1")
+        self._call("/interior-design-kannur", "b1")
+
+        response = self.client.get(self.url, {"days": "30", "sort": "enquiries"})
+        paths = [row["path"] for row in response.context["page_obj"]]
+
+        # Fewer views but an actual enquiry, so it leads.
+        self.assertEqual(paths[0], "/interior-design-kannur")
+
+    def test_csv_export_covers_the_filtered_set(self):
+        self._view("/sand-supply-cherthala", "v1")
+        self._view("/interior-design-kannur", "v2")
+
+        response = self.client.get(
+            reverse("admin:analytics-pages-export"), {"days": "30", "q": "cherthala"}
+        )
+        body = response.content.decode()
+
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn("/sand-supply-cherthala", body)
+        self.assertNotIn("/interior-design-kannur", body)
+        self.assertIn("Path,Service,Location", body)

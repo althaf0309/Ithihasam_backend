@@ -11,6 +11,7 @@ import csv
 from datetime import timedelta
 
 from django.contrib import admin, messages
+from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
@@ -19,7 +20,11 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .analytics_models import AnalyticsEvent
-from .analytics_performance import expansion_report, performance_report
+from .analytics_performance import (
+    expansion_report,
+    performance_by_path,
+    performance_report,
+)
 
 # Windows offered by the dashboard's period selector.
 PERIODS = {"1": 1, "7": 7, "30": 30, "90": 90}
@@ -111,6 +116,10 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
         return [
             path("dashboard/", self.admin_site.admin_view(self.dashboard_view), name="analytics-dashboard"),
             path("dashboard/export/", self.admin_site.admin_view(self.export_view), name="analytics-export"),
+            # Every page and every location, not the top slice the dashboard
+            # shows. With 2,759 pages a 25-row table is under 1% of the site.
+            path("dashboard/pages/", self.admin_site.admin_view(self.pages_view), name="analytics-pages"),
+            path("dashboard/pages/export/", self.admin_site.admin_view(self.pages_export_view), name="analytics-pages-export"),
             *super().get_urls(),
         ]
 
@@ -226,6 +235,95 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
             "target_labels": labels,
         }
         return TemplateResponse(request, "admin/analytics_dashboard.html", context)
+
+    # --------------------------------------------------- every page / place
+
+    #: Columns the full page table can be sorted by, mapped to a sort key.
+    PAGE_SORTS = {
+        "views": lambda r: -r["views"],
+        "visitors": lambda r: -r["visitors"],
+        "enquiries": lambda r: (-r["enquiries"], -r["views"]),
+        "rate": lambda r: (-r["rate"], -r["views"]),
+        "path": lambda r: r["path"],
+        "service": lambda r: (r["service"] or "zzz", -r["views"]),
+        "place": lambda r: (r["place"] or "zzz", -r["views"]),
+    }
+
+    def _page_rows(self, request):
+        """Every page in the window, filtered and sorted from the query string."""
+        days, since = self._window(request)
+        rows = performance_by_path(since)
+
+        search = (request.GET.get("q") or "").strip().lower()
+        if search:
+            rows = [
+                r for r in rows
+                if search in r["path"].lower()
+                or search in (r["service"] or "").lower()
+                or search in (r["place"] or "").lower()
+            ]
+
+        show = request.GET.get("show") or "all"
+        if show == "dead":
+            rows = [r for r in rows if not r["enquiries"]]
+        elif show == "converting":
+            rows = [r for r in rows if r["enquiries"]]
+
+        sort = request.GET.get("sort") or "views"
+        rows.sort(key=self.PAGE_SORTS.get(sort, self.PAGE_SORTS["views"]))
+
+        return days, rows, {"q": search, "show": show, "sort": sort}
+
+    def pages_view(self, request):
+        days, rows, state = self._page_rows(request)
+
+        # Paginated rather than rendering thousands of rows: the full table
+        # for this site is ~2,759 pages and the browser would stall.
+        paginator = Paginator(rows, 100)
+        page = paginator.get_page(request.GET.get("page"))
+
+        totals = {
+            "pages": len(rows),
+            "views": sum(r["views"] for r in rows),
+            "visitors": sum(r["visitors"] for r in rows),
+            "enquiries": sum(r["enquiries"] for r in rows),
+        }
+        totals["rate"] = (
+            round(totals["enquiries"] / totals["visitors"] * 100, 1) if totals["visitors"] else 0.0
+        )
+
+        # The querystring without `page`, so sort and filter links survive
+        # paging and vice versa.
+        keep = {k: v for k, v in request.GET.items() if k != "page"}
+        base_query = "&".join(f"{k}={v}" for k, v in keep.items() if v)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "All pages and locations",
+            "days": days,
+            "periods": sorted(PERIODS.items(), key=lambda item: int(item[0])),
+            "page_obj": page,
+            "totals": totals,
+            "base_query": base_query,
+            **state,
+        }
+        return TemplateResponse(request, "admin/analytics_pages.html", context)
+
+    def pages_export_view(self, request):
+        """The same table as CSV, unpaginated, for analysis in a spreadsheet."""
+        days, rows, _ = self._page_rows(request)
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="ithihasam-pages-{days}d.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(["Path", "Service", "Location", "Views", "Visitors", "Enquiries", "Rate %"])
+        for row in rows:
+            writer.writerow([
+                row["path"], row["service"] or "", row["place"] or "",
+                row["views"], row["visitors"], row["enquiries"], row["rate"],
+            ])
+        return response
 
     def export_view(self, request):
         days, since = self._window(request)

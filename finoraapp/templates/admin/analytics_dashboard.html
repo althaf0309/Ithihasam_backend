@@ -178,6 +178,10 @@ staff authentication rather than needing its own login.
 
     <div class="an-block">
       <h2>Service performance</h2>
+      <p class="an-note">
+        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}">
+          Browse all {{ performance.by_service|length }}+ services page by page, with search and CSV &rarr;</a>
+      </p>
       {% if not performance.catalogue_loaded %}
         <p class="an-note">Service names are unavailable because the frontend data files were not
         found on this server. The page list below is still accurate.</p>
@@ -261,6 +265,10 @@ staff authentication rather than needing its own login.
 
     <div class="an-block">
       <h2>Pages with visitors but no enquiries</h2>
+      <p class="an-note">
+        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}&amp;show=dead">
+          See every page with no enquiries &rarr;</a>
+      </p>
       <p class="an-note">{{ performance.dead_count }} page{{ performance.dead_count|pluralize }}
       had at least {{ performance.min_views }} views and produced no call, WhatsApp or form.
       These are the pages worth rewriting, merging or dropping.</p>

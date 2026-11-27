@@ -1,0 +1,116 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .ap-wrap { max-width: 1240px; }
+  .ap-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; }
+  .ap-bar a, .ap-bar button {
+    border: 1px solid var(--hairline-color, #ddd); border-radius: 999px;
+    padding: 5px 13px; font-size: 12px; text-decoration: none; background: none;
+    color: inherit; cursor: pointer;
+  }
+  .ap-bar a.on { background: var(--primary, #417690); color: #fff; border-color: transparent; }
+  .ap-bar input[type="search"] {
+    border: 1px solid var(--hairline-color, #ddd); border-radius: 999px;
+    padding: 5px 13px; font-size: 12px; min-width: 220px;
+  }
+  .ap-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .ap-card { border: 1px solid var(--hairline-color, #e0e0e0); border-radius: 10px; padding: 12px 15px; background: var(--darkened-bg, #fafafa); }
+  .ap-card .n { font-size: 22px; font-weight: 700; }
+  .ap-card .l { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+  .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ap-table th, .ap-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline-color, #eee); }
+  .ap-table th { font-size: 11px; text-transform: uppercase; opacity: .7; }
+  .ap-table th a { text-decoration: none; color: inherit; }
+  .ap-table td.num, .ap-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ap-zero { opacity: .55; }
+  .ap-note { font-size: 12px; opacity: .75; margin: 0 0 14px; line-height: 1.5; }
+  .ap-pager { display: flex; gap: 10px; align-items: center; margin-top: 16px; font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ap-wrap">
+
+  <p class="ap-note">
+    Every page with recorded activity in this period, not the top slice shown on the dashboard.
+    An enquiry counts the booking form, a Call Now tap or a WhatsApp tap.
+    <a href="{% url 'admin:analytics-dashboard' %}?days={{ days }}">&larr; Back to the dashboard</a>
+  </p>
+
+  <div class="ap-bar">
+    {% for value, label in periods %}
+      <a href="?days={{ value }}{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}"
+         class="{% if days|stringformat:'s' == value %}on{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="ap-bar">
+    <a href="?days={{ days }}{% if q %}&amp;q={{ q }}{% endif %}" class="{% if show == 'all' %}on{% endif %}">All pages</a>
+    <a href="?days={{ days }}&amp;show=converting{% if q %}&amp;q={{ q }}{% endif %}" class="{% if show == 'converting' %}on{% endif %}">With enquiries</a>
+    <a href="?days={{ days }}&amp;show=dead{% if q %}&amp;q={{ q }}{% endif %}" class="{% if show == 'dead' %}on{% endif %}">No enquiries</a>
+
+    <form method="get" style="display:inline-flex;gap:8px;margin-left:auto;">
+      <input type="hidden" name="days" value="{{ days }}">
+      {% if show != 'all' %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+      <input type="search" name="q" value="{{ q }}" placeholder="Filter by page, service or town">
+      <button type="submit">Filter</button>
+    </form>
+
+    <a href="{% url 'admin:analytics-pages-export' %}?days={{ days }}{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">
+      Download CSV
+    </a>
+  </div>
+
+  <div class="ap-cards">
+    <div class="ap-card"><div class="n">{{ totals.pages }}</div><div class="l">Pages</div></div>
+    <div class="ap-card"><div class="n">{{ totals.views }}</div><div class="l">Views</div></div>
+    <div class="ap-card"><div class="n">{{ totals.visitors }}</div><div class="l">People</div></div>
+    <div class="ap-card"><div class="n">{{ totals.enquiries }}</div><div class="l">Enquiries</div></div>
+    <div class="ap-card"><div class="n">{{ totals.rate }}%</div><div class="l">Contact rate</div></div>
+  </div>
+
+  <table class="ap-table">
+    <thead>
+      <tr>
+        <th><a href="?days={{ days }}&amp;sort=path{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Page</a></th>
+        <th><a href="?days={{ days }}&amp;sort=service{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Service</a></th>
+        <th><a href="?days={{ days }}&amp;sort=place{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Location</a></th>
+        <th class="num"><a href="?days={{ days }}&amp;sort=views{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Views</a></th>
+        <th class="num"><a href="?days={{ days }}&amp;sort=visitors{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">People</a></th>
+        <th class="num"><a href="?days={{ days }}&amp;sort=enquiries{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Enquiries</a></th>
+        <th class="num"><a href="?days={{ days }}&amp;sort=rate{% if q %}&amp;q={{ q }}{% endif %}{% if show != 'all' %}&amp;show={{ show }}{% endif %}">Rate</a></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in page_obj %}
+        <tr{% if not row.enquiries %} class="ap-zero"{% endif %}>
+          <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
+          <td>{{ row.service|default:"&mdash;" }}</td>
+          <td>{{ row.place|default:"&mdash;" }}</td>
+          <td class="num">{{ row.views }}</td>
+          <td class="num">{{ row.visitors }}</td>
+          <td class="num">{{ row.enquiries }}</td>
+          <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7">No pages matched. Try a wider period or clear the filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="ap-pager">
+      {% if page_obj.has_previous %}
+        <a href="?{{ base_query }}&amp;page={{ page_obj.previous_page_number }}">&larr; Previous</a>
+      {% endif %}
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        ({{ page_obj.paginator.count }} pages)</span>
+      {% if page_obj.has_next %}
+        <a href="?{{ base_query }}&amp;page={{ page_obj.next_page_number }}">Next &rarr;</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
