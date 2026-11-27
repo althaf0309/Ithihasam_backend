@@ -193,6 +193,9 @@ REST_FRAMEWORK = {
         # Analytics is high-volume by nature: one browsing session sends several
         # batches. Generous, but still bounded against a flood.
         "analytics_ingest": os.getenv("ANALYTICS_THROTTLE_RATE", "240/hour"),
+        # A scheduled run files a handful of drafts a day. Bounded so a leaked
+        # token cannot fill the blog overnight.
+        "blog_ingest": os.getenv("BLOG_INGEST_THROTTLE_RATE", "30/hour"),
     },
 }
 
@@ -372,6 +375,12 @@ BLOG_MODEL = os.getenv("BLOG_MODEL", "claude-haiku-5-5")
 # page not worth writing. Raise it only if Search Console shows the new posts
 # indexing and earning enquiries.
 BLOG_POSTS_PER_RUN = int(os.getenv("BLOG_POSTS_PER_RUN", "5"))
+
+# Shared secret a scheduled agent uses to file drafts at /api/blog/drafts/.
+# Unset means the endpoint does not exist: a missing secret must never mean
+# "open to everyone". Generate one with:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+BLOG_INGEST_TOKEN = os.getenv("BLOG_INGEST_TOKEN", "")
 
 # Which services and places the schedule covers. Comma-separated slugs
 # override the defaults in blog_planner.py; empty means use those defaults.
