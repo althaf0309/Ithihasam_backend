@@ -381,3 +381,29 @@ class AllPagesViewTests(TestCase):
         self.assertIn("/sand-supply-cherthala", body)
         self.assertNotIn("/interior-design-kannur", body)
         self.assertIn("Path,Service,Location", body)
+
+
+class AdminNavTests(TestCase):
+    """The analytics links in the admin header.
+
+    These views live under a model's changelist URL, so Django's own sidebar
+    only ever shows "Analytics events" and the dashboard was reachable only by
+    typing the URL.
+    """
+    def setUp(self):
+        get_user_model().objects.create_superuser("admin", "a@b.c", "pw-for-test-only")
+        self.client.login(username="admin", password="pw-for-test-only")
+
+    def test_nav_appears_on_the_admin_index(self):
+        body = self.client.get(reverse("admin:index")).content.decode()
+        self.assertIn("All pages &amp; locations", body)
+        self.assertIn(reverse("admin:analytics-dashboard"), body)
+
+    def test_nav_appears_on_the_dashboard_itself(self):
+        body = self.client.get(reverse("admin:analytics-dashboard")).content.decode()
+        self.assertIn(reverse("admin:analytics-pages"), body)
+        self.assertIn('id="expansion"', body)
+
+    def test_nav_appears_on_the_all_pages_view(self):
+        body = self.client.get(reverse("admin:analytics-pages")).content.decode()
+        self.assertIn(reverse("admin:analytics-dashboard"), body)

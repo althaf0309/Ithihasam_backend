@@ -85,7 +85,11 @@ ROOT_URLCONF = "finorabackend.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # Project templates win over an app's, which is what lets
+        # templates/admin/base_site.html override Django's own. Putting the
+        # override inside finoraapp would not work: django.contrib.admin is
+        # listed first in INSTALLED_APPS, so its copy is found first.
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

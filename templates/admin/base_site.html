@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+
+{# Adds a persistent link bar to the analytics views.
+
+   They live under a model's changelist URL, so Django's own sidebar only ever
+   shows "Analytics events" and the dashboard was reachable by typing the URL.
+   This puts both one click away from anywhere in the admin. #}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Ithihasam admin{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+  <a href="{% url 'admin:index' %}">Ithihasam admin</a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .ith-nav {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 9px 16px; font-size: 12px;
+    background: var(--darkened-bg, #f4f4f4);
+    border-bottom: 1px solid var(--hairline-color, #e0e0e0);
+  }
+  .ith-nav span { opacity: .6; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+  .ith-nav a {
+    text-decoration: none; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--hairline-color, #ddd); color: var(--body-fg, #333);
+    background: var(--body-bg, #fff);
+  }
+  .ith-nav a:hover { border-color: var(--primary, #417690); color: var(--primary, #417690); }
+  .ith-nav a.on { background: var(--primary, #417690); color: #fff; border-color: transparent; }
+  .ith-nav .sep { opacity: .35; }
+</style>
+{% endblock %}
+
+{% block nav-global %}
+<nav class="ith-nav" aria-label="Analytics">
+  <span>Analytics</span>
+  <a href="{% url 'admin:analytics-dashboard' %}">Dashboard</a>
+  <a href="{% url 'admin:analytics-pages' %}">All pages &amp; locations</a>
+  <a href="{% url 'admin:analytics-pages' %}?show=dead">Pages with no enquiries</a>
+  <a href="{% url 'admin:analytics-dashboard' %}#expansion">Where to add pages</a>
+  <span class="sep">|</span>
+  <a href="{% url 'admin:finoraapp_analyticsevent_changelist' %}">Raw events</a>
+</nav>
+{% endblock %}
