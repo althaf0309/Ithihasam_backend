@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.text import slugify
@@ -28,8 +29,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--count", type=int, default=3,
-            help="How many posts to write. Default 3.",
+            "--count", type=int, default=None,
+            help="How many posts to write. Defaults to BLOG_POSTS_PER_RUN.",
         )
         parser.add_argument(
             "--publish", action="store_true",
@@ -50,7 +51,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Falls back to the setting so cron can call the command bare and the
+        # volume is changed in one place.
         count = options["count"]
+        if count is None:
+            count = getattr(settings, "BLOG_POSTS_PER_RUN", 5)
         if count < 1:
             raise CommandError("--count must be at least 1.")
 

@@ -365,10 +365,13 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 # arranging known material rather than reasoning from scratch.
 BLOG_MODEL = os.getenv("BLOG_MODEL", "claude-haiku-5-5")
 
-# How many posts a scheduled run writes. Lower it if Search Console shows
-# indexing falling — a page Google will not index is a page not worth the
-# spend.
-BLOG_POSTS_PER_RUN = int(os.getenv("BLOG_POSTS_PER_RUN", "30"))
+# How many posts a scheduled run writes.
+#
+# Five a day is deliberate. The site already carries 2,759 URLs with 3,463 not
+# indexed, so volume is not the constraint — a page Google will not index is a
+# page not worth writing. Raise it only if Search Console shows the new posts
+# indexing and earning enquiries.
+BLOG_POSTS_PER_RUN = int(os.getenv("BLOG_POSTS_PER_RUN", "5"))
 
 # Which services and places the schedule covers. Comma-separated slugs
 # override the defaults in blog_planner.py; empty means use those defaults.
