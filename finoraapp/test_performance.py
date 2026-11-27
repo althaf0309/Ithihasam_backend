@@ -185,22 +185,43 @@ class PerformanceReportTests(TestCase):
 
 
 class DashboardRendersTests(TestCase):
-    def test_dashboard_renders_the_performance_panels(self):
-        User = get_user_model()
-        User.objects.create_superuser("admin", "a@b.c", "pw-for-test-only")
+    def setUp(self):
+        get_user_model().objects.create_superuser("admin", "a@b.c", "pw-for-test-only")
         self.client.login(username="admin", password="pw-for-test-only")
 
+    def test_dashboard_renders_the_performance_panels(self):
         AnalyticsEvent.objects.create(
             kind=AnalyticsEvent.Kind.PAGE_VIEW, path="/sand-supply-cherthala", visitor_id="v1"
         )
 
         response = self.client.get(reverse("admin:analytics-dashboard"))
         self.assertEqual(response.status_code, 200)
-        body = response.content.decode()
-        for heading in ("Where to add pages next", "Service performance",
-                        "Performance by location", "Best performing pages",
-                        "Pages with visitors but no enquiries"):
-            self.assertIn(heading, body)
+        self.assertEqual(response.context["tab"], "overview")
+
+        # Each tab carries its own sections, so the assertions follow the tab.
+        expected = {
+            "performance": ("Service performance", "Performance by location",
+                            "Best performing pages", "Pages with visitors but no enquiries"),
+            "growth": ("Where to add pages next",),
+            "people": ("Form submissions", "Identified visitors"),
+        }
+        for tab, headings in expected.items():
+            body = self.client.get(
+                reverse("admin:analytics-dashboard"), {"tab": tab}
+            ).content.decode()
+            for heading in headings:
+                self.assertIn(heading, body, f"{heading} missing from the {tab} tab")
+
+    def test_an_unknown_tab_falls_back_to_overview(self):
+        # A stale bookmark or a typed URL must not render an empty page.
+        response = self.client.get(reverse("admin:analytics-dashboard"), {"tab": "nonsense"})
+        self.assertEqual(response.context["tab"], "overview")
+
+    def test_the_period_switch_keeps_the_current_tab(self):
+        body = self.client.get(
+            reverse("admin:analytics-dashboard"), {"tab": "performance", "days": "30"}
+        ).content.decode()
+        self.assertIn("tab=performance", body)
 
 
 class ExpansionReportTests(TestCase):
@@ -402,7 +423,9 @@ class AdminNavTests(TestCase):
     def test_nav_appears_on_the_dashboard_itself(self):
         body = self.client.get(reverse("admin:analytics-dashboard")).content.decode()
         self.assertIn(reverse("admin:analytics-pages"), body)
-        self.assertIn('id="expansion"', body)
+        # The "Where to add pages" link has to open the tab that holds that
+        # section; linking an anchor would land on Overview and jump nowhere.
+        self.assertIn("tab=growth", body)
 
     def test_nav_appears_on_the_all_pages_view(self):
         body = self.client.get(reverse("admin:analytics-pages")).content.decode()

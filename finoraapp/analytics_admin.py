@@ -27,6 +27,9 @@ from .analytics_performance import (
 )
 
 # Windows offered by the dashboard's period selector.
+#: Tabs on the analytics dashboard. Anything else falls back to overview.
+DASHBOARD_TABS = ("overview", "performance", "growth", "people")
+
 PERIODS = {"1": 1, "7": 7, "30": 30, "90": 90}
 
 
@@ -173,6 +176,9 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
             **self.admin_site.each_context(request),
             "title": "Visitor analytics",
             "days": days,
+            # Which tab to render. Thirteen panels in one column was a long
+            # scroll; grouping them keeps one topic on screen at a time.
+            "tab": request.GET.get("tab") if request.GET.get("tab") in DASHBOARD_TABS else "overview",
             "periods": sorted(PERIODS.items(), key=lambda item: int(item[0])),
             "summary": summary,
             "by_target": by_target,

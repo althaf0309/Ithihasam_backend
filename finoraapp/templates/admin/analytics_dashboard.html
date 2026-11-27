@@ -28,23 +28,78 @@ staff authentication rather than needing its own login.
   .an-empty { opacity: .6; font-style: italic; padding: 12px 0; font-size: 13px; }
   .an-tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: rgba(65,118,144,.14); }
   .an-rep { color: #b45309; font-weight: 600; }
-  .an-full { grid-column: 1 / -1; }
   .an-scroll { max-height: 460px; overflow-y: auto; }
   .an-actions { margin: 24px 0 8px; }
   .an-actions a { font-size: 13px; }
+
+  /* Header: period chips on the left, export on the right, one row. */
+  .an-head {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    justify-content: space-between; margin: 0 0 18px;
+  }
+  .an-head h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .an-head .sub { font-size: 12px; opacity: .7; margin-top: 2px; }
+
+  /* Tabs. Thirteen panels in one column was a long scroll with ragged
+     alignment; grouping them means one topic is on screen at a time. */
+  .an-tabs {
+    display: flex; gap: 2px; flex-wrap: wrap; margin: 0 0 20px;
+    border-bottom: 2px solid var(--hairline-color, #e4e4e4);
+  }
+  .an-tabs a {
+    padding: 9px 16px; font-size: 13px; font-weight: 600; text-decoration: none;
+    color: var(--body-quiet-color, #666); border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+  }
+  .an-tabs a:hover { color: var(--primary, #417690); }
+  .an-tabs a.on { color: var(--primary, #417690); border-bottom-color: var(--primary, #417690); }
+
+  /* Equal-height cards in a tidy grid, instead of two forced full-width
+     blocks breaking the row rhythm. */
+  .an-grid { align-items: start; }
+  .an-block {
+    border: 1px solid var(--hairline-color, #e6e6e6); border-radius: 12px;
+    padding: 16px 18px; background: var(--body-bg, #fff);
+  }
+  .an-block h2 { padding-bottom: 8px; border-bottom: 1px solid var(--hairline-color, #f0f0f0); }
+  .an-block h3 { font-size: 12px; text-transform: uppercase; opacity: .7; margin: 16px 0 6px; }
+  .an-block tbody tr:last-child td { border-bottom: none; }
+  .an-block tbody tr:hover td { background: var(--darkened-bg, #fafafa); }
+
+  @media (max-width: 767px) {
+    .an-grid { grid-template-columns: 1fr; }
+    .an-head { flex-direction: column; align-items: stretch; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="an-wrap">
 
-  <div class="an-periods">
-    {% for value, label in periods %}
-      <a href="?days={{ value }}" class="{% if days|stringformat:'s' == value %}on{% endif %}">
-        {% if value == '1' %}Today{% else %}Last {{ value }} days{% endif %}
-      </a>
-    {% endfor %}
+  <div class="an-head">
+    <div>
+      <h1>Visitor analytics</h1>
+      <div class="sub">
+        {% if days == 1 %}Today{% else %}Last {{ days }} days{% endif %} &middot;
+        {{ summary.visitors }} visitor{{ summary.visitors|pluralize }}
+      </div>
+    </div>
+    <div class="an-periods" style="margin:0;">
+      {% for value, label in periods %}
+        <a href="?days={{ value }}{% if tab %}&amp;tab={{ tab }}{% endif %}"
+           class="{% if days|stringformat:'s' == value %}on{% endif %}">
+          {% if value == '1' %}Today{% else %}{{ value }}d{% endif %}
+        </a>
+      {% endfor %}
+    </div>
   </div>
+
+  <nav class="an-tabs">
+    <a href="?days={{ days }}" class="{% if tab == 'overview' %}on{% endif %}">Overview</a>
+    <a href="?days={{ days }}&amp;tab=performance" class="{% if tab == 'performance' %}on{% endif %}">Performance</a>
+    <a href="?days={{ days }}&amp;tab=growth" class="{% if tab == 'growth' %}on{% endif %}">Where to grow</a>
+    <a href="?days={{ days }}&amp;tab=people" class="{% if tab == 'people' %}on{% endif %}">Enquiries &amp; people</a>
+  </nav>
 
   <div class="an-cards">
     <div class="an-card"><div class="n">{{ summary.visitors }}</div><div class="l">Visitors</div></div>
@@ -56,8 +111,8 @@ staff authentication rather than needing its own login.
   </div>
 
   <div class="an-grid">
-
-    <div class="an-block">
+    {% if tab == 'overview' %}
+<div class="an-block">
       <h2>Clicks by type</h2>
       <table>
         <thead><tr><th>Type</th><th class="num">Clicks</th><th class="num">People</th><th class="num">Repeats</th></tr></thead>
@@ -71,7 +126,7 @@ staff authentication rather than needing its own login.
       </table>
     </div>
 
-    <div class="an-block">
+<div class="an-block">
       <h2>Where visitors are</h2>
       <table>
         <thead><tr><th>Location</th><th class="num">People</th><th class="num">Events</th></tr></thead>
@@ -90,24 +145,157 @@ staff authentication rather than needing its own login.
       </table>
     </div>
 
-    <div class="an-block">
-      <h2>Most clicked</h2>
+<div class="an-block">
+      <h2>Top pages</h2>
       <table>
-        <thead><tr><th>Label</th><th>Page</th><th class="num">Clicks</th></tr></thead>
+        <thead><tr><th>Page</th><th class="num">Views</th><th class="num">People</th></tr></thead>
         <tbody>
-          {% for row in top_clicked %}
-            <tr>
-              <td><span class="an-tag">{{ target_labels|default_if_none:'' }}{{ row.target_type }}</span> {{ row.label|default:"—" }}</td>
-              <td>{{ row.path }}</td><td class="num">{{ row.total }}</td>
-            </tr>
+          {% for row in top_pages %}
+            <tr><td>{{ row.path }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
           {% empty %}
-            <tr><td colspan="3" class="an-empty">Nothing clicked yet.</td></tr>
+            <tr><td colspan="3" class="an-empty">No page views yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    <div class="an-block" id="expansion">
+<div class="an-block">
+      <h2>Devices</h2>
+      <table>
+        <thead><tr><th>Device</th><th class="num">Events</th><th class="num">People</th></tr></thead>
+        <tbody>
+          {% for row in devices %}
+            <tr><td>{{ row.device_type|title }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
+          {% empty %}
+            <tr><td colspan="3" class="an-empty">No device data yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% endif %}
+
+    {% if tab == 'performance' %}
+<div class="an-block">
+      <h2>Service performance</h2>
+      <p class="an-note">
+        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}">
+          Browse all {{ performance.by_service|length }}+ services page by page, with search and CSV &rarr;</a>
+      </p>
+      {% if not performance.catalogue_loaded %}
+        <p class="an-note">Service names are unavailable because the frontend data files were not
+        found on this server. The page list below is still accurate.</p>
+      {% endif %}
+      <p class="an-note">An enquiry is any attempt at contact: the booking form, Call Now, or
+      WhatsApp. Most customers call rather than fill the form, so counting forms alone would show
+      working pages as dead.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Service</th><th class="num">Pages</th><th class="num">Views</th>
+            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in performance.by_service %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="num">{{ row.pages }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No page views recorded in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+<div class="an-block">
+      <h2>Performance by location</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Location</th><th class="num">Pages</th><th class="num">Views</th>
+            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in performance.by_place %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="num">{{ row.pages }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No location data in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+<div class="an-block">
+      <h2>Best performing pages</h2>
+      <table>
+        <thead>
+          <tr><th>Page</th><th>Service</th><th>Location</th>
+              <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th></tr>
+        </thead>
+        <tbody>
+          {% for row in performance.best_pages %}
+            <tr>
+              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
+              <td>{{ row.service|default:"&mdash;" }}</td>
+              <td>{{ row.place|default:"&mdash;" }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{{ row.rate }}%</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No page earned an enquiry in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+<div class="an-block">
+      <h2>Pages with visitors but no enquiries</h2>
+      <p class="an-note">
+        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}&amp;show=dead">
+          See every page with no enquiries &rarr;</a>
+      </p>
+      <p class="an-note">{{ performance.dead_count }} page{{ performance.dead_count|pluralize }}
+      had at least {{ performance.min_views }} views and produced no call, WhatsApp or form.
+      These are the pages worth rewriting, merging or dropping.</p>
+      <table>
+        <thead>
+          <tr><th>Page</th><th>Service</th><th>Location</th><th class="num">Views</th><th class="num">People</th></tr>
+        </thead>
+        <tbody>
+          {% for row in performance.dead_pages %}
+            <tr>
+              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
+              <td>{{ row.service|default:"&mdash;" }}</td>
+              <td>{{ row.place|default:"&mdash;" }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.visitors }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5">Every page with traffic produced at least one enquiry.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% endif %}
+
+    {% if tab == 'growth' %}
+<div class="an-block" id="expansion">
       <h2>Where to add pages next</h2>
       <p class="an-note">Places with demand and no page of their own. A town already covered is
       not listed here, however much traffic it has &mdash; that is the existing pages working,
@@ -176,151 +364,27 @@ staff authentication rather than needing its own login.
       </table>
     </div>
 
-    <div class="an-block">
-      <h2>Service performance</h2>
-      <p class="an-note">
-        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}">
-          Browse all {{ performance.by_service|length }}+ services page by page, with search and CSV &rarr;</a>
-      </p>
-      {% if not performance.catalogue_loaded %}
-        <p class="an-note">Service names are unavailable because the frontend data files were not
-        found on this server. The page list below is still accurate.</p>
-      {% endif %}
-      <p class="an-note">An enquiry is any attempt at contact: the booking form, Call Now, or
-      WhatsApp. Most customers call rather than fill the form, so counting forms alone would show
-      working pages as dead.</p>
+<div class="an-block">
+      <h2>Most clicked</h2>
       <table>
-        <thead>
-          <tr>
-            <th>Service</th><th class="num">Pages</th><th class="num">Views</th>
-            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Label</th><th>Page</th><th class="num">Clicks</th></tr></thead>
         <tbody>
-          {% for row in performance.by_service %}
+          {% for row in top_clicked %}
             <tr>
-              <td>{{ row.label }}</td>
-              <td class="num">{{ row.pages }}</td>
-              <td class="num">{{ row.views }}</td>
-              <td class="num">{{ row.visitors }}</td>
-              <td class="num">{{ row.enquiries }}</td>
-              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+              <td><span class="an-tag">{{ target_labels|default_if_none:'' }}{{ row.target_type }}</span> {{ row.label|default:"—" }}</td>
+              <td>{{ row.path }}</td><td class="num">{{ row.total }}</td>
             </tr>
           {% empty %}
-            <tr><td colspan="6">No page views recorded in this period.</td></tr>
+            <tr><td colspan="3" class="an-empty">Nothing clicked yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    <div class="an-block">
-      <h2>Performance by location</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Location</th><th class="num">Pages</th><th class="num">Views</th>
-            <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in performance.by_place %}
-            <tr>
-              <td>{{ row.label }}</td>
-              <td class="num">{{ row.pages }}</td>
-              <td class="num">{{ row.views }}</td>
-              <td class="num">{{ row.visitors }}</td>
-              <td class="num">{{ row.enquiries }}</td>
-              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="6">No location data in this period.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% endif %}
 
-    <div class="an-block">
-      <h2>Best performing pages</h2>
-      <table>
-        <thead>
-          <tr><th>Page</th><th>Service</th><th>Location</th>
-              <th class="num">People</th><th class="num">Enquiries</th><th class="num">Rate</th></tr>
-        </thead>
-        <tbody>
-          {% for row in performance.best_pages %}
-            <tr>
-              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
-              <td>{{ row.service|default:"&mdash;" }}</td>
-              <td>{{ row.place|default:"&mdash;" }}</td>
-              <td class="num">{{ row.visitors }}</td>
-              <td class="num">{{ row.enquiries }}</td>
-              <td class="num">{{ row.rate }}%</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="6">No page earned an enquiry in this period.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="an-block">
-      <h2>Pages with visitors but no enquiries</h2>
-      <p class="an-note">
-        <a href="{% url 'admin:analytics-pages' %}?days={{ days }}&amp;show=dead">
-          See every page with no enquiries &rarr;</a>
-      </p>
-      <p class="an-note">{{ performance.dead_count }} page{{ performance.dead_count|pluralize }}
-      had at least {{ performance.min_views }} views and produced no call, WhatsApp or form.
-      These are the pages worth rewriting, merging or dropping.</p>
-      <table>
-        <thead>
-          <tr><th>Page</th><th>Service</th><th>Location</th><th class="num">Views</th><th class="num">People</th></tr>
-        </thead>
-        <tbody>
-          {% for row in performance.dead_pages %}
-            <tr>
-              <td><a href="https://ithihasam.in{{ row.path }}" target="_blank" rel="noopener">{{ row.path }}</a></td>
-              <td>{{ row.service|default:"&mdash;" }}</td>
-              <td>{{ row.place|default:"&mdash;" }}</td>
-              <td class="num">{{ row.views }}</td>
-              <td class="num">{{ row.visitors }}</td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="5">Every page with traffic produced at least one enquiry.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="an-block">
-      <h2>Top pages</h2>
-      <table>
-        <thead><tr><th>Page</th><th class="num">Views</th><th class="num">People</th></tr></thead>
-        <tbody>
-          {% for row in top_pages %}
-            <tr><td>{{ row.path }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
-          {% empty %}
-            <tr><td colspan="3" class="an-empty">No page views yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="an-block">
-      <h2>Devices</h2>
-      <table>
-        <thead><tr><th>Device</th><th class="num">Events</th><th class="num">People</th></tr></thead>
-        <tbody>
-          {% for row in devices %}
-            <tr><td>{{ row.device_type|title }}</td><td class="num">{{ row.total }}</td><td class="num">{{ row.people }}</td></tr>
-          {% empty %}
-            <tr><td colspan="3" class="an-empty">No device data yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="an-block">
+    {% if tab == 'people' %}
+<div class="an-block">
       <h2>Form submissions</h2>
       <div class="an-scroll">
         <table>
@@ -340,7 +404,7 @@ staff authentication rather than needing its own login.
       </div>
     </div>
 
-    <div class="an-block an-full">
+<div class="an-block">
       <h2>Identified visitors</h2>
       <div class="an-scroll">
         <table>
@@ -363,7 +427,7 @@ staff authentication rather than needing its own login.
       </div>
     </div>
 
-    <div class="an-block an-full">
+<div class="an-block">
       <h2>Click log</h2>
       <div class="an-scroll">
         <table>
@@ -389,10 +453,13 @@ staff authentication rather than needing its own login.
       </div>
     </div>
 
+    {% endif %}
+
   </div>
 
   <div class="an-actions">
-    <a class="button" href="?days={{ days }}&amp;export=1" onclick="this.href='export/?days={{ days }}'">Download CSV ({{ days }} days)</a>
+    <a class="button" href="{% url 'admin:analytics-export' %}?days={{ days }}">Download raw events CSV ({{ days }} days)</a>
+    <a class="button" href="{% url 'admin:analytics-pages' %}?days={{ days }}">All pages &amp; locations &rarr;</a>
   </div>
 
 </div>
