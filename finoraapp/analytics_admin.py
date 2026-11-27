@@ -19,7 +19,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .analytics_models import AnalyticsEvent
-from .analytics_performance import performance_report
+from .analytics_performance import expansion_report, performance_report
 
 # Windows offered by the dashboard's period selector.
 PERIODS = {"1": 1, "7": 7, "30": 30, "90": 90}
@@ -182,6 +182,10 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
             # visitors and return nothing. A raw path list cannot answer that
             # across 2,759 URLs.
             "performance": performance_report(since),
+            # Where demand exists that the site does not yet serve: a town a
+            # customer typed into the form, or one visitors come from with no
+            # page of its own.
+            "expansion": expansion_report(since),
             "top_pages": list(
                 events.filter(kind=AnalyticsEvent.Kind.PAGE_VIEW)
                 .values("path")

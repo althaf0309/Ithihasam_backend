@@ -108,6 +108,75 @@ staff authentication rather than needing its own login.
     </div>
 
     <div class="an-block">
+      <h2>Where to add pages next</h2>
+      <p class="an-note">Places with demand and no page of their own. A town already covered is
+      not listed here, however much traffic it has &mdash; that is the existing pages working,
+      which the panels below report.</p>
+
+      <h3 style="font-size:12px;text-transform:uppercase;opacity:.7;margin:14px 0 6px;">
+        Towns customers typed into the booking form
+      </h3>
+      <p class="an-note">The strongest signal: someone asked for work in this place by name.</p>
+      <table>
+        <thead><tr><th>Place</th><th class="num">Requests</th><th>Services asked for</th></tr></thead>
+        <tbody>
+          {% for row in expansion.requested_uncovered %}
+            <tr>
+              <td><strong>{{ row.place }}</strong></td>
+              <td class="num">{{ row.requests }}</td>
+              <td>{{ row.services|default:"&mdash;" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3">Every town customers asked for already has pages.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h3 style="font-size:12px;text-transform:uppercase;opacity:.7;margin:18px 0 6px;">
+        Visitors from places with no page
+      </h3>
+      <p class="an-note">Where visitors actually are, by GeoIP, with at least
+      {{ expansion.min_signal }} people. Sorted by enquiries first: a place that already produces
+      calls without a page of its own is the clearest opportunity.</p>
+      <table>
+        <thead>
+          <tr><th>Place</th><th>Region</th><th class="num">People</th>
+              <th class="num">Views</th><th class="num">Enquiries</th><th class="num">Rate</th></tr>
+        </thead>
+        <tbody>
+          {% for row in expansion.visitor_gaps %}
+            <tr>
+              <td><strong>{{ row.city }}</strong></td>
+              <td>{{ row.region|default:"&mdash;" }}</td>
+              <td class="num">{{ row.visitors }}</td>
+              <td class="num">{{ row.views }}</td>
+              <td class="num">{{ row.enquiries }}</td>
+              <td class="num">{% if row.enquiries %}{{ row.rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">No uncovered place reached {{ expansion.min_signal }} visitors.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h3 style="font-size:12px;text-transform:uppercase;opacity:.7;margin:18px 0 6px;">
+        What those visitors were reading
+      </h3>
+      <p class="an-note">The service each uncovered place looked at most, so a new page can be
+      written about the right thing rather than guessed at.</p>
+      <table>
+        <thead><tr><th>Place</th><th>Service they read about</th><th class="num">Views</th></tr></thead>
+        <tbody>
+          {% for row in expansion.wanted_services %}
+            <tr><td>{{ row.city }}</td><td>{{ row.service }}</td><td class="num">{{ row.views }}</td></tr>
+          {% empty %}
+            <tr><td colspan="3">Not enough data yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="an-block">
       <h2>Service performance</h2>
       {% if not performance.catalogue_loaded %}
         <p class="an-note">Service names are unavailable because the frontend data files were not

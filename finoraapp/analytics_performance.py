@@ -322,3 +322,128 @@ def performance_report(since, *, min_views: int = 5) -> dict:
         "min_views": min_views,
         "services_without_enquiries": [s for s in by_service if not s["enquiries"]],
     }
+
+
+# --------------------------------------------------------------------------
+# Where to expand next
+# --------------------------------------------------------------------------
+
+def _norm(value: str) -> str:
+    """Loose key for comparing a typed or GeoIP place name against a slug."""
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
+
+
+def covered_places() -> set[str]:
+    """Normalised names of every town and district that already has pages."""
+    return {_norm(name) for name in catalogue().places.values()}
+
+
+def expansion_report(since, *, min_signal: int = 3) -> dict:
+    """Where demand exists that the site does not yet serve.
+
+    Three signals, strongest first:
+
+    1. `form_city` — the customer typed where they need the work. Unambiguous
+       intent, and it is the only one that survives a VPN or a mobile network
+       routing through another city.
+    2. Visitor city with enquiries — people in a place who went on to call or
+       message, reading pages written about somewhere else.
+    3. Visitor city by volume — traffic from a place with no page of its own.
+
+    A place already in the catalogue is not a gap, however much traffic it
+    has: that is the existing pages working, which the performance panels
+    already report.
+    """
+    covered = covered_places()
+    events = AnalyticsEvent.objects.filter(created_at__gte=since)
+
+    # --- 1. Cities people typed into the booking form ---------------------
+    typed: dict[str, dict] = {}
+    rows = (
+        events.filter(kind=AnalyticsEvent.Kind.FORM_SUBMIT)
+        .exclude(form_city="")
+        .values("form_city", "form_service")
+    )
+    for row in rows:
+        key = _norm(row["form_city"])
+        if not key:
+            continue
+        bucket = typed.setdefault(
+            key,
+            {"place": row["form_city"].strip().title(), "requests": 0,
+             "services": set(), "covered": key in covered},
+        )
+        bucket["requests"] += 1
+        if row["form_service"]:
+            bucket["services"].add(row["form_service"])
+
+    for bucket in typed.values():
+        bucket["services"] = ", ".join(sorted(bucket["services"])[:4])
+
+    # --- 2 & 3. Where visitors actually are -------------------------------
+    by_city = (
+        events.exclude(city="")
+        .values("city", "region")
+        .annotate(
+            visitors=Count("visitor_id", distinct=True),
+            views=Count("id", filter=Q(kind=AnalyticsEvent.Kind.PAGE_VIEW)),
+            enquiries=Count(
+                "id",
+                filter=Q(kind=AnalyticsEvent.Kind.FORM_SUBMIT)
+                | Q(kind=AnalyticsEvent.Kind.CLICK, target_type__in=CONTACT_TARGETS),
+            ),
+        )
+        .order_by("-visitors")
+    )
+
+    visitor_gaps, visitor_covered = [], []
+    for row in by_city:
+        entry = {
+            **row,
+            "rate": _rate(row["enquiries"], row["visitors"]),
+            "covered": _norm(row["city"]) in covered,
+        }
+        (visitor_covered if entry["covered"] else visitor_gaps).append(entry)
+
+    # Which services those uncovered visitors were reading, so a new page can
+    # be written about the right thing rather than guessed at.
+    gap_names = {row["city"] for row in visitor_gaps[:10]}
+    wanted: dict[str, dict] = {}
+    if gap_names:
+        for row in (
+            events.filter(city__in=gap_names, kind=AnalyticsEvent.Kind.PAGE_VIEW)
+            .exclude(path="")
+            .values("city", "path")
+            .annotate(views=Count("id"))
+            .order_by("-views")[:200]
+        ):
+            service, _ = split_path(row["path"])
+            if not service:
+                continue
+            key = f"{row['city']}|{service}"
+            bucket = wanted.setdefault(
+                key, {"city": row["city"], "service": service, "views": 0}
+            )
+            bucket["views"] += row["views"]
+
+    return {
+        "catalogue_loaded": bool(catalogue().places),
+        "min_signal": min_signal,
+        # Strongest signal: typed by a real customer, no page for it yet.
+        "requested_uncovered": sorted(
+            (b for b in typed.values() if not b["covered"]),
+            key=lambda b: -b["requests"],
+        )[:20],
+        "requested_covered": sorted(
+            (b for b in typed.values() if b["covered"]),
+            key=lambda b: -b["requests"],
+        )[:10],
+        # Visitors in places with no page, ranked by enquiries then volume.
+        "visitor_gaps": sorted(
+            (r for r in visitor_gaps if r["visitors"] >= min_signal),
+            key=lambda r: (-r["enquiries"], -r["visitors"]),
+        )[:20],
+        # The places already working, for comparison.
+        "visitor_covered": visitor_covered[:10],
+        "wanted_services": sorted(wanted.values(), key=lambda b: -b["views"])[:20],
+    }
